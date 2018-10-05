@@ -13,7 +13,6 @@ void error(char *msg)
     exit(1);
 }
 
-
 int main(int argc, char *argv[]) {
     int sockfd, newsockfd, portno, clilen;
     char buffer[256];
