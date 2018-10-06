@@ -7,8 +7,8 @@
 #include <zconf.h>
 #include <netdb.h>
 
-void error(char *msg) {
-    perror(msg);
+void error() {
+    perror("internal error");
     exit(1);
 }
 
@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
     if ((strcmp("l", argv[1]) == 0)) {
         sockfd = socket(AF_INET, SOCK_STREAM, protocol);
         if (sockfd < 0)
-            error("internal error");
+            error();
         bzero((char *) &serv_addr, sizeof(serv_addr));
         portno = atoi(argv[argc - 1]);
         serv_addr.sin_family = AF_INET;
@@ -46,19 +46,19 @@ int main(int argc, char *argv[]) {
         serv_addr.sin_port = htons(portno);
         if (bind(sockfd, (struct sockaddr *) &serv_addr,
                  sizeof(serv_addr)) < 0)
-            error("internal error");
+            error();
         listen(sockfd, 5);
         clilen = sizeof(cli_addr);
         newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
         if (newsockfd < 0)
-            error("internal error");
+            error();
         bzero(buffer, 256);
         while (1) {
             n = (int) read(newsockfd, buffer, 255);
-            if (n < 0) error("internal error");
+            if (n < 0) error();
             printf("Here is the message: %s", buffer);
             n = (int) write(newsockfd, "I got your message", 18);
-            if (n < 0) error("internal error");
+            if (n < 0) error();
         }
 
     } else {
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
         portno = atoi(argv[argc - 1]);
         sockfd = socket(AF_INET, SOCK_STREAM, protocol);
         if (sockfd < 0)
-            error("internal error");
+            error();
         server = gethostbyname(argv[argc - 2]);
         if (server == NULL) {
             fprintf(stderr, "internal error\n");
@@ -79,18 +79,18 @@ int main(int argc, char *argv[]) {
               server->h_length);
         serv_addr.sin_port = htons(portno);
         if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
-            error("internal error");
+            error();
         while (1) {
             printf("Please enter a message: ");
             bzero(buffer, 256);
             fgets(buffer, 255, stdin);
             n = (int) write(sockfd, buffer, strlen(buffer));
             if (n < 0)
-                error("internal error");
+                error();
             bzero(buffer, 256);
             n = (int) read(sockfd, buffer, 255);
             if (n < 0)
-                error("internal error");
+                error();
             printf("%s\n", buffer);
         }
     }
