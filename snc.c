@@ -19,7 +19,10 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in serv_addr, cli_addr;
     struct hostent *server;
     int n;
-    char *type_flag = argv[1];
+    if (argc < 3) {
+        printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
+        exit(1);
+    }
     int protocol;
     int flag = 0;
     for (int i = 1; i <= 2; i++) {
@@ -31,12 +34,8 @@ int main(int argc, char *argv[]) {
     if (!flag) {
         protocol = IPPROTO_TCP;
     }
-    if (argc < 3) {
-        fprintf(stderr, "invalid or missing options\n"
-                        "usage: snc [-l] [-u] [hostname] port");
-        exit(1);
-    }
-    if ((strcmp("l", type_flag) == 0)) {
+
+    if ((strcmp("l", argv[1]) == 0)) {
         sockfd = socket(AF_INET, SOCK_STREAM, protocol);
         if (sockfd < 0)
             error("internal error");
