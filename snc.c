@@ -48,12 +48,12 @@ int main(int argc, char *argv[]) {
         if (bind(sockfd, (struct sockaddr *) &serv_addr,
                  sizeof(serv_addr)) < 0)
             error("internal error");
-            listen(sockfd, 5);
-            clilen = sizeof(cli_addr);
-            newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
-            if (newsockfd < 0)
-                error("internal error");
-            bzero(buffer, 256);
+        listen(sockfd, 5);
+        clilen = sizeof(cli_addr);
+        newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
+        if (newsockfd < 0)
+            error("internal error");
+        bzero(buffer, 256);
         while (1) {
             n = (int) read(newsockfd, buffer, 255);
             if (n < 0) error("internal error");
