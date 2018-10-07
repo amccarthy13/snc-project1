@@ -23,19 +23,18 @@ int main(int argc, char *argv[]) {
         printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
         exit(1);
     }
-    int protocol;
-    int flag = 0;
+    int protocol = IPPROTO_TCP;
+    int type_flag = 0;
     for (int i = 1; i <= 2; i++) {
-        if (strcmp(argv[i], "u") == 0) {
+        if (strcmp(argv[i], "-u") == 0) {
             protocol = IPPROTO_UDP;
-            flag = 1;
+        }
+        if (strcmp(argv[i], "-l") == 0) {
+            type_flag = 1;
         }
     }
-    if (!flag) {
-        protocol = IPPROTO_TCP;
-    }
 
-    if ((strcmp("l", argv[1]) == 0)) {
+    if (type_flag) {
         sockfd = socket(AF_INET, SOCK_STREAM, protocol);
         if (sockfd < 0)
             error();
@@ -53,7 +52,7 @@ int main(int argc, char *argv[]) {
         if (newsockfd < 0)
             error();
         bzero(buffer, 256);
-        while (1) {
+        for (;;) {
             n = (int) read(newsockfd, buffer, 255);
             if (n < 0) error();
             printf("Here is the message: %s", buffer);
@@ -80,7 +79,7 @@ int main(int argc, char *argv[]) {
         serv_addr.sin_port = htons(portno);
         if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
             error();
-        while (1) {
+        for (;;) {
             printf("Please enter a message: ");
             bzero(buffer, 256);
             fgets(buffer, 255, stdin);
