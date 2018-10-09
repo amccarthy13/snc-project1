@@ -1,0 +1,5 @@
+Andrew Kiefer McCarthy, CNetID: 12161318 
+
+Code acts as a server and a client depending on which arguments are given.  server can accept multiple connections at once.  if Ctrl+D is pressed when using TCP, client and server instances are killed.  If Ctrl+D is pressed when using UDP only the instance that pressed it is killed.  Client can accept messages infinitely until a kill command is given and server can recieve commands until a kill command is given.
+
+To compile, run make.  run the binary snc with appropriate arguments to execute the program.  Client will display "Please enter a message" at which point you should enter a message and hit enter to send it.  If the message was recieved correctly, client should display "I got your message".  Server will display "Here is the message: <message>" as messages are recieved.  enter Ctrl+D to stop the program. 
