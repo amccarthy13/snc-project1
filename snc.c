@@ -6,16 +6,29 @@
 #include <strings.h>
 #include <zconf.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 
 void error() {
     perror("internal error");
     exit(1);
 }
 
+void handle_session(int sock) {
+    int n;
+    char buffer[256];
+    for (;;) {
+        bzero(buffer, 256);
+        n = read(sock, buffer, 255);
+        if (n < 0) error();
+        printf("Here is the message: %s\n", buffer);
+        n = write(sock, "I got your message", 18);
+        if (n < 0) error();
+    }
+}
+
 
 int main(int argc, char *argv[]) {
-    int sockfd, newsockfd, portno, clilen;
-    char buffer[256];
+    int sockfd, newsockfd, portno, clilen, pid;
     struct sockaddr_in serv_addr, cli_addr;
     struct hostent *server;
     int n;
@@ -34,6 +47,13 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    int client_flag = 0;
+    char* client = "";
+    if ((argc >= 5 && protocol == IPPROTO_UDP) || (argc >= 4 && protocol == IPPROTO_TCP)) {
+        client = argv[argc - 2];
+        client_flag = 1;
+    }
+
     if (type_flag) {
         sockfd = socket(AF_INET, SOCK_STREAM, protocol);
         if (sockfd < 0)
@@ -48,16 +68,26 @@ int main(int argc, char *argv[]) {
             error();
         listen(sockfd, 5);
         clilen = sizeof(cli_addr);
-        newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
-        if (newsockfd < 0)
-            error();
-        bzero(buffer, 256);
         for (;;) {
-            n = (int) read(newsockfd, buffer, 255);
-            if (n < 0) error();
-            printf("Here is the message: %s", buffer);
-            n = (int) write(newsockfd, "I got your message", 18);
-            if (n < 0) error();
+            newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, (socklen_t *) &clilen);
+            struct sockaddr_in* pV4Addr = &cli_addr;
+            struct in_addr ipAddr = pV4Addr->sin_addr;
+            char str[INET_ADDRSTRLEN];
+            inet_ntop( AF_INET, &ipAddr, str, INET_ADDRSTRLEN );
+            if ((client_flag &&  strcmp(str, client) == 0) || !client_flag) {
+                if (newsockfd < 0)
+                    error();
+                pid = fork();
+                if (pid < 0)
+                    error();
+                if (pid == 0) {
+                    close(sockfd);
+                    handle_session(newsockfd);
+                    exit(0);
+                } else close(newsockfd);
+            } else {
+                close(newsockfd);
+            }
         }
 
     } else {
