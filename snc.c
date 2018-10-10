@@ -66,7 +66,7 @@ void handle_session(int sock, int pid) { //handler multiple server connections
         if (n < 0) error();
         if (n == 0) {
             close(sock);
-            kill(pid, SIGKILL);
+            exit(1);
         }
         if (n != 0) {
             printf("Here is the message: %s\n", buffer);
