@@ -53,7 +53,7 @@ void handle_read(int sock) { //handle socket reads for client
     }
 }
 
-void handle_session(int sock, int pid) { //handler multiple server connections
+void handle_session(int sock) { //handler multiple server connections
     int n;
     char buffer[256];
     for (;;) {
@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
                     error();
                 if (pid == 0) {
                     close(sockfd);
-                    handle_session(newsockfd, pid);
+                    handle_session(newsockfd);
                     exit(0);
                 } else close(newsockfd);
             } else {
