@@ -14,11 +14,12 @@ void error() {
     exit(1);
 }
 
-void handle_kill(int sock, int protocol) {
+void handle_kill(int sock, int protocol) { // handle input reads for server
     char buffer[100];
     for (;;) {
         char *line = fgets(buffer, 255, stdin);
         if (line == NULL) {
+            close(sock);
             if (protocol == IPPROTO_TCP) {
                 write(sock, "0x03", 18);
                 kill(0, SIGKILL);
@@ -31,24 +32,52 @@ void handle_kill(int sock, int protocol) {
     }
 }
 
-void handle_session(int sock) {
+void handle_read(int sock) { //handle socket reads for client
+    char buffer[256];
+    for (;;) {
+        int n = (int) read(sock, buffer, 255);
+        if (strcmp(buffer, "0x03") == 0) {
+            close(sock);
+            kill(0, SIGKILL);
+        }
+        if (strcmp(buffer, ""))
+        if (n < 0)
+            error();
+        if (n == 0) {
+            close(sock);
+            kill(0, SIGKILL);
+        }
+        if (n != 0) {
+            printf("%s\n", buffer);
+        }
+    }
+}
+
+void handle_session(int sock, int pid) { //handler multiple server connections
     int n;
     char buffer[256];
     for (;;) {
         bzero(buffer, 256);
         n = read(sock, buffer, 255);
         if (strcmp(buffer, "0x03") == 0) {
+            close(sock);
             kill(0, SIGKILL);
         }
         if (n < 0) error();
-        printf("Here is the message: %s\n", buffer);
+        if (n == 0) {
+            close(sock);
+            kill(pid, SIGKILL);
+        }
+        if (n != 0) {
+            printf("Here is the message: %s\n", buffer);
+        }
         n = write(sock, "I got your message", 18);
         if (n < 0) error();
     }
 }
 
 int main(int argc, char *argv[]) {
-    int sockfd, newsockfd, portno, clilen, pid, kill_pid;
+    int sockfd, newsockfd, portno, clilen, pid, kill_pid, read_pid;
     struct sockaddr_in serv_addr, cli_addr;
     struct hostent *server;
     int n;
@@ -58,7 +87,7 @@ int main(int argc, char *argv[]) {
     }
     int protocol = IPPROTO_TCP;
     int type_flag = 0;
-    for (int i = 1; i <= 2; i++) {
+    for (int i = 1; i <= 2; i++) { //read flags
         if (strcmp(argv[i], "-u") == 0) {
             protocol = IPPROTO_UDP;
         }
@@ -69,12 +98,14 @@ int main(int argc, char *argv[]) {
 
     int client_flag = 0;
     char *client = "";
-    if ((argc >= 5 && protocol == IPPROTO_UDP) || (argc >= 4 && protocol == IPPROTO_TCP)) {
-        client = argv[argc - 2];
-        client_flag = 1;
+    if (type_flag) { //determine if server instance includes hostname
+        if ((argc >= 5 && protocol == IPPROTO_UDP) || (argc >= 4 && protocol == IPPROTO_TCP)) {
+            client = argv[argc - 2];
+            client_flag = 1;
+        }
     }
 
-    if (type_flag) {
+    if (type_flag) { // act as server
         sockfd = socket(AF_INET, SOCK_STREAM, protocol);
         if (sockfd < 0)
             error();
@@ -109,7 +140,7 @@ int main(int argc, char *argv[]) {
                     error();
                 if (pid == 0) {
                     close(sockfd);
-                    handle_session(newsockfd);
+                    handle_session(newsockfd, pid);
                     exit(0);
                 } else close(newsockfd);
             } else {
@@ -117,7 +148,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
-    } else {
+    } else { //act as client
         char buffer[256];
         portno = atoi(argv[argc - 1]);
         if (portno == 0) {
@@ -138,11 +169,15 @@ int main(int argc, char *argv[]) {
         serv_addr.sin_port = htons(portno);
         if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
             error();
+        read_pid = fork();
+        if (read_pid == 0) {
+            handle_read(sockfd);
+        }
         for (;;) {
-            printf("Please enter a message: ");
             bzero(buffer, 256);
             char *line = fgets(buffer, 255, stdin);
             if (line == NULL) {
+                close(sockfd);
                 if (protocol == IPPROTO_TCP) {
                     write(sockfd, "0x03", 18);
                     kill(0, SIGKILL);
@@ -155,13 +190,6 @@ int main(int argc, char *argv[]) {
             if (n < 0)
                 error();
             bzero(buffer, 256);
-            n = (int) read(sockfd, buffer, 255);
-            if (strcmp(buffer, "0x03") == 0) {
-                kill(0, SIGKILL);
-            }
-            if (n < 0)
-                error();
-            printf("%s\n", buffer);
         }
     }
 }
