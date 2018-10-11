@@ -11,7 +11,7 @@
 
 void error() {
     perror("internal error");
-    exit(1);
+    kill(0, SIGKILL);
 }
 
 void handle_kill(int sock, int protocol) { // handle input reads for server
@@ -19,12 +19,12 @@ void handle_kill(int sock, int protocol) { // handle input reads for server
     for (;;) {
         char *line = fgets(buffer, 255, stdin);
         if (line == NULL) {
-            close(sock);
             if (protocol == IPPROTO_TCP) {
                 write(sock, "0x03", 18);
+                close(sock);
                 kill(0, SIGKILL);
-            }
-            else {
+            } else {
+                close(sock);
                 kill(0, SIGKILL);
             }
         }
@@ -40,7 +40,6 @@ void handle_read(int sock) { //handle socket reads for client
             close(sock);
             kill(0, SIGKILL);
         }
-        if (strcmp(buffer, ""))
         if (n < 0)
             error();
         if (n == 0) {
@@ -86,10 +85,12 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
     int protocol = IPPROTO_TCP;
+    int sock_type = SOCK_STREAM;
     int type_flag = 0;
     for (int i = 1; i <= 2; i++) { //read flags
         if (strcmp(argv[i], "-u") == 0) {
             protocol = IPPROTO_UDP;
+            sock_type = SOCK_DGRAM;
         }
         if (strcmp(argv[i], "-l") == 0) {
             type_flag = 1;
@@ -106,7 +107,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (type_flag) { // act as server
-        sockfd = socket(AF_INET, SOCK_STREAM, protocol);
+        sockfd = socket(AF_INET, sock_type, protocol);
         if (sockfd < 0)
             error();
         bzero((char *) &serv_addr, sizeof(serv_addr));
@@ -122,30 +123,35 @@ int main(int argc, char *argv[]) {
             error();
         listen(sockfd, 5);
         clilen = sizeof(cli_addr);
-        for (;;) {
-            newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, (socklen_t *) &clilen);
-            struct sockaddr_in *pV4Addr = &cli_addr;
-            struct in_addr ipAddr = pV4Addr->sin_addr;
-            char str[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, &ipAddr, str, INET_ADDRSTRLEN);
-            if ((client_flag && strcmp(str, client) == 0) || !client_flag) {
-                if (newsockfd < 0)
-                    error();
-                kill_pid = fork();
-                if (kill_pid == 0) {
-                    handle_kill(newsockfd, protocol);
+        if (protocol == IPPROTO_TCP) {
+            for (;;) {
+                newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, (socklen_t *) &clilen);
+                struct sockaddr_in *pV4Addr = &cli_addr;
+                struct in_addr ipAddr = pV4Addr->sin_addr;
+                char str[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, &ipAddr, str, INET_ADDRSTRLEN);
+                if ((client_flag && strcmp(str, client) == 0) || !client_flag) {
+                    if (newsockfd < 0)
+                        error();
+                    kill_pid = fork();
+                    if (kill_pid == 0) {
+                        handle_kill(newsockfd, protocol);
+                    }
+                    pid = fork();
+                    if (pid < 0)
+                        error();
+                    if (pid == 0) {
+                        close(sockfd);
+                        handle_session(newsockfd);
+                        exit(0);
+                    } else close(newsockfd);
+                } else {
+                    close(newsockfd);
                 }
-                pid = fork();
-                if (pid < 0)
-                    error();
-                if (pid == 0) {
-                    close(sockfd);
-                    handle_session(newsockfd);
-                    exit(0);
-                } else close(newsockfd);
-            } else {
-                close(newsockfd);
             }
+        }
+        if (protocol == IPPROTO_UDP) {
+
         }
 
     } else { //act as client
@@ -154,7 +160,7 @@ int main(int argc, char *argv[]) {
         if (portno == 0) {
             error();
         }
-        sockfd = socket(AF_INET, SOCK_STREAM, protocol);
+        sockfd = socket(AF_INET, sock_type, protocol);
         if (sockfd < 0)
             error();
         server = gethostbyname(argv[argc - 2]);
@@ -177,12 +183,12 @@ int main(int argc, char *argv[]) {
             bzero(buffer, 256);
             char *line = fgets(buffer, 255, stdin);
             if (line == NULL) {
-                close(sockfd);
                 if (protocol == IPPROTO_TCP) {
                     write(sockfd, "0x03", 18);
+                    close(sockfd);
                     kill(0, SIGKILL);
-                }
-                else {
+                } else {
+                    close(sockfd);
                     kill(0, SIGKILL);
                 }
             }
