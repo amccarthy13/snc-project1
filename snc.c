@@ -32,7 +32,7 @@ void handle_kill(int sock, int protocol) { // handle input reads for server
     }
 }
 
-void handle_read(int sock) { //handle socket reads for client
+void handle_read_tcp(int sock) { //handle socket reads for client
     char buffer[256];
     for (;;) {
         int n = (int) read(sock, buffer, 255);
@@ -52,7 +52,9 @@ void handle_read(int sock) { //handle socket reads for client
     }
 }
 
-void handle_session(int sock) { //handler multiple server connections
+void handle_read_udp(int sock) {}
+
+void handle_session_tcp(int sock) { //handler multiple server connections
     int n;
     char buffer[256];
     for (;;) {
@@ -76,7 +78,7 @@ void handle_session(int sock) { //handler multiple server connections
 }
 
 int main(int argc, char *argv[]) {
-    int sockfd, newsockfd, portno, clilen, pid, kill_pid, read_pid;
+    int sockfd, newsockfd, portno, clilen, pid, kill_pid, read_pid, addr_size;
     struct sockaddr_in serv_addr, cli_addr;
     struct hostent *server;
     int n;
@@ -107,23 +109,23 @@ int main(int argc, char *argv[]) {
     }
 
     if (type_flag) { // act as server
-        sockfd = socket(AF_INET, sock_type, protocol);
-        if (sockfd < 0)
-            error();
-        bzero((char *) &serv_addr, sizeof(serv_addr));
-        portno = atoi(argv[argc - 1]);
-        if (portno == 0) {
-            error();
-        }
-        serv_addr.sin_family = AF_INET;
-        serv_addr.sin_addr.s_addr = INADDR_ANY;
-        serv_addr.sin_port = htons(portno);
-        if (bind(sockfd, (struct sockaddr *) &serv_addr,
-                 sizeof(serv_addr)) < 0)
-            error();
-        listen(sockfd, 5);
-        clilen = sizeof(cli_addr);
         if (protocol == IPPROTO_TCP) {
+            sockfd = socket(AF_INET, sock_type, protocol);
+            if (sockfd < 0)
+                error();
+            bzero((char *) &serv_addr, sizeof(serv_addr));
+            portno = atoi(argv[argc - 1]);
+            if (portno == 0) {
+                error();
+            }
+            serv_addr.sin_family = AF_INET;
+            serv_addr.sin_port = htons(portno);
+            serv_addr.sin_addr.s_addr = INADDR_ANY;
+            if (bind(sockfd, (struct sockaddr *) &serv_addr,
+                     sizeof(serv_addr)) < 0)
+                error();
+            clilen = sizeof(cli_addr);
+            listen(sockfd, 5);
             for (;;) {
                 newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, (socklen_t *) &clilen);
                 struct sockaddr_in *pV4Addr = &cli_addr;
@@ -142,60 +144,127 @@ int main(int argc, char *argv[]) {
                         error();
                     if (pid == 0) {
                         close(sockfd);
-                        handle_session(newsockfd);
+                        handle_session_tcp(newsockfd);
                         exit(0);
                     } else close(newsockfd);
                 } else {
                     close(newsockfd);
                 }
             }
-        }
-        if (protocol == IPPROTO_UDP) {
+        } else {
+            portno = atoi(argv[argc - 1]);
+            if (portno == 0) {
+                error();
+            }
+            char buffer[256];
+            char *response = "I got your message";
+            struct sockaddr_in serv_addr, cli_addr;
 
-        }
+            if ((sockfd = socket(AF_INET, sock_type, 0)) < 0) {
+                error();
+            }
+            memset(&serv_addr, 0, sizeof(serv_addr));
+            memset(&cli_addr, 0, sizeof(cli_addr));
 
+            serv_addr.sin_family = AF_INET;
+            serv_addr.sin_addr.s_addr = INADDR_ANY;
+            serv_addr.sin_port = htons(portno);
+
+            if (bind(sockfd, (const struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+                error();
+            }
+            int len, n;
+            for (;;) {
+                n = recvfrom(sockfd, (char *) buffer, 256, MSG_WAITALL, (
+                        struct sockaddr *) &cli_addr, &len);
+                buffer[n] = '\0';
+                printf("Here is the message: %s\n", buffer);
+                sendto(sockfd, (const char *) response, strlen(response), MSG_SEND, (const struct sockaddr *) &cli_addr,
+                       len);
+            }
+        }
     } else { //act as client
         char buffer[256];
         portno = atoi(argv[argc - 1]);
         if (portno == 0) {
             error();
         }
-        sockfd = socket(AF_INET, sock_type, protocol);
-        if (sockfd < 0)
-            error();
-        server = gethostbyname(argv[argc - 2]);
-        if (server == NULL) {
-            error();
-        }
-        bzero((char *) &serv_addr, sizeof(serv_addr));
-        serv_addr.sin_family = AF_INET;
-        bcopy(server->h_addr,
-              (char *) &serv_addr.sin_addr.s_addr,
-              server->h_length);
-        serv_addr.sin_port = htons(portno);
-        if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
-            error();
-        read_pid = fork();
-        if (read_pid == 0) {
-            handle_read(sockfd);
-        }
-        for (;;) {
-            bzero(buffer, 256);
-            char *line = fgets(buffer, 255, stdin);
-            if (line == NULL) {
-                if (protocol == IPPROTO_TCP) {
-                    write(sockfd, "0x03", 18);
-                    close(sockfd);
-                    kill(0, SIGKILL);
-                } else {
+        if (protocol == IPPROTO_TCP) {
+            sockfd = socket(AF_INET, sock_type, protocol);
+            if (sockfd < 0)
+                error();
+
+            server = gethostbyname(argv[argc - 2]);
+            if (server == NULL) {
+                error();
+
+            }
+            bzero((char *) &serv_addr, sizeof(serv_addr));
+            serv_addr.
+                    sin_family = AF_INET;
+            bcopy(server->h_addr,
+                  (char *) &serv_addr.sin_addr.s_addr,
+                  server->h_length);
+            serv_addr.sin_port = htons(portno);
+            if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
+                error();
+
+            read_pid = fork();
+            if (read_pid == 0) {
+                handle_read_tcp(sockfd);
+            }
+            for (;;) {
+                bzero(buffer, 256);
+                char *line = fgets(buffer, 255, stdin);
+                if (line == NULL) {
+                    write(sockfd,
+                          "0x03", 18);
                     close(sockfd);
                     kill(0, SIGKILL);
                 }
+                n = (int) write(sockfd, buffer, strlen(buffer));
+                if (n < 0)
+
+                    error();
+
+                bzero(buffer, 256);
             }
-            n = (int) write(sockfd, buffer, strlen(buffer));
-            if (n < 0)
+        } else {
+            struct sockaddr_in serv_addr;
+
+            if ((sockfd = socket(AF_INET, sock_type, 0)) < 0) {
                 error();
-            bzero(buffer, 256);
+            }
+
+            memset(&serv_addr, 0, sizeof(serv_addr));
+            serv_addr.sin_family = AF_INET;
+            serv_addr.sin_port = htons(portno);
+            serv_addr.sin_addr.s_addr = INADDR_ANY;
+            for (;;) {
+                int n, len;
+                memset(serv_addr.sin_zero, '\0', sizeof(serv_addr.sin_zero));
+                addr_size = sizeof(serv_addr);
+                bzero(buffer, 256);
+                char *line = fgets(buffer, 255, stdin);
+                if (line == NULL) {
+                    close(sockfd);
+                    kill(0, SIGKILL);
+                }
+
+                int nbytes = strlen(buffer) + 1;
+                if (sendto(sockfd, buffer, nbytes, 0, (struct sockaddr *) &serv_addr, addr_size) < 0) {
+                    error();
+
+                }
+                n = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *) &serv_addr, &len);
+                if (n < 0) {
+                    error();
+
+                }
+                printf("%s\n", buffer);
+                close(sockfd);
+                exit(1);
+            }
         }
     }
 }

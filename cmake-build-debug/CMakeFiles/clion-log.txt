@@ -1,4 +1,10 @@
 /Users/andrewM/Desktop/CLion.app/Contents/bin/cmake/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - Unix Makefiles" /Users/andrewM/CLionProjects/snc
--- Configuring done
--- Generating done
--- Build files have been written to: /Users/andrewM/CLionProjects/snc/cmake-build-debug
+CMake Error at CMakeLists.txt:6 (add_executable):
+  The target name "cmake-build-debug/CMakeCache.txt" is reserved or not valid
+  for certain CMake features, such as generator expressions, and may result
+  in undefined behavior.
+
+
+-- Configuring incomplete, errors occurred!
+See also "/Users/andrewM/CLionProjects/snc/cmake-build-debug/CMakeFiles/CMakeOutput.log".
+See also "/Users/andrewM/CLionProjects/snc/cmake-build-debug/CMakeFiles/CMakeError.log".
