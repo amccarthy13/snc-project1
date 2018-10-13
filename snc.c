@@ -22,9 +22,7 @@ void handle_kill(int sock, int protocol) { // handle input reads for server
             if (protocol == IPPROTO_TCP) {
                 write(sock, "0x03", 18);
                 close(sock);
-                kill(0, SIGKILL);
-            } else {
-                close(sock);
+                printf("internal error");
                 kill(0, SIGKILL);
             }
         }
@@ -38,12 +36,14 @@ void handle_read_tcp(int sock) { //handle socket reads for client
         int n = (int) read(sock, buffer, 255);
         if (strcmp(buffer, "0x03") == 0) {
             close(sock);
+            printf("internal error");
             kill(0, SIGKILL);
         }
         if (n < 0)
             error();
         if (n == 0) {
             close(sock);
+            printf("internal error");
             kill(0, SIGKILL);
         }
         if (n != 0) {
@@ -51,8 +51,6 @@ void handle_read_tcp(int sock) { //handle socket reads for client
         }
     }
 }
-
-void handle_read_udp(int sock) {}
 
 void handle_session_tcp(int sock) { //handler multiple server connections
     int n;
@@ -62,12 +60,13 @@ void handle_session_tcp(int sock) { //handler multiple server connections
         n = read(sock, buffer, 255);
         if (strcmp(buffer, "0x03") == 0) {
             close(sock);
+            printf("internal error");
             kill(0, SIGKILL);
         }
         if (n < 0) error();
         if (n == 0) {
             close(sock);
-            exit(1);
+            error();
         }
         if (n != 0) {
             printf("Here is the message: %s\n", buffer);
@@ -156,8 +155,8 @@ int main(int argc, char *argv[]) {
             if (portno == 0) {
                 error();
             }
+            char * response = "I got your message";
             char buffer[256];
-            char *response = "I got your message";
             struct sockaddr_in serv_addr, cli_addr;
 
             if ((sockfd = socket(AF_INET, sock_type, 0)) < 0) {
@@ -173,14 +172,16 @@ int main(int argc, char *argv[]) {
             if (bind(sockfd, (const struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
                 error();
             }
+            kill_pid = fork();
+            if (kill_pid == 0) {
+                handle_kill(sockfd, protocol);
+            }
             int len, n;
             for (;;) {
                 n = recvfrom(sockfd, (char *) buffer, 256, MSG_WAITALL, (
-                        struct sockaddr *) &cli_addr, &len);
+                        struct sockaddr *) &cli_addr, (socklen_t *) &len);
                 buffer[n] = '\0';
                 printf("Here is the message: %s\n", buffer);
-                sendto(sockfd, (const char *) response, strlen(response), MSG_SEND, (const struct sockaddr *) &cli_addr,
-                       len);
             }
         }
     } else { //act as client
@@ -220,18 +221,15 @@ int main(int argc, char *argv[]) {
                     write(sockfd,
                           "0x03", 18);
                     close(sockfd);
+                    printf("internal error");
                     kill(0, SIGKILL);
                 }
                 n = (int) write(sockfd, buffer, strlen(buffer));
                 if (n < 0)
-
                     error();
-
                 bzero(buffer, 256);
             }
         } else {
-            struct sockaddr_in serv_addr;
-
             if ((sockfd = socket(AF_INET, sock_type, 0)) < 0) {
                 error();
             }
@@ -241,29 +239,18 @@ int main(int argc, char *argv[]) {
             serv_addr.sin_port = htons(portno);
             serv_addr.sin_addr.s_addr = INADDR_ANY;
             for (;;) {
-                int n, len;
                 memset(serv_addr.sin_zero, '\0', sizeof(serv_addr.sin_zero));
                 addr_size = sizeof(serv_addr);
                 bzero(buffer, 256);
                 char *line = fgets(buffer, 255, stdin);
                 if (line == NULL) {
-                    close(sockfd);
-                    kill(0, SIGKILL);
+                    for (;;) {}
                 }
 
                 int nbytes = strlen(buffer) + 1;
                 if (sendto(sockfd, buffer, nbytes, 0, (struct sockaddr *) &serv_addr, addr_size) < 0) {
                     error();
-
                 }
-                n = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *) &serv_addr, &len);
-                if (n < 0) {
-                    error();
-
-                }
-                printf("%s\n", buffer);
-                close(sockfd);
-                exit(1);
             }
         }
     }
