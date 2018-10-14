@@ -22,8 +22,7 @@ void handle_kill(int sock, int protocol) { // handle input reads for server
             if (protocol == IPPROTO_TCP) {
                 write(sock, "0x03", 18);
                 close(sock);
-                printf("internal error");
-                kill(0, SIGKILL);
+                error();
             }
         }
         bzero(buffer, 100);
@@ -36,15 +35,11 @@ void handle_read_tcp(int sock) { //handle socket reads for client
         int n = (int) read(sock, buffer, 255);
         if (strcmp(buffer, "0x03") == 0) {
             close(sock);
-            printf("internal error");
-            kill(0, SIGKILL);
-        }
-        if (n < 0)
             error();
-        if (n == 0) {
+        }
+        if (n < 1) {
             close(sock);
-            printf("internal error");
-            kill(0, SIGKILL);
+            error();
         }
         if (n != 0) {
             printf("%s\n", buffer);
@@ -57,21 +52,19 @@ void handle_session_tcp(int sock) { //handler multiple server connections
     char buffer[256];
     for (;;) {
         bzero(buffer, 256);
-        n = read(sock, buffer, 255);
+        n = (int) read(sock, buffer, 255);
         if (strcmp(buffer, "0x03") == 0) {
             close(sock);
-            printf("internal error");
-            kill(0, SIGKILL);
+            error();
         }
-        if (n < 0) error();
-        if (n == 0) {
+        if (n < 1) {
             close(sock);
             error();
         }
         if (n != 0) {
             printf("Here is the message: %s\n", buffer);
         }
-        n = write(sock, "I got your message", 18);
+        n = (int) write(sock, "I got your message", 18);
         if (n < 0) error();
     }
 }
@@ -98,6 +91,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    server = gethostbyname(argv[argc - 2]);
+
     int client_flag = 0;
     char *client = "";
     if (type_flag) { //determine if server instance includes hostname
@@ -107,16 +102,56 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    if (protocol == IPPROTO_TCP && !type_flag) {
+        if (argc > 3) {
+            printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
+            exit(1);
+        }
+    }
+    if (protocol == IPPROTO_TCP && type_flag) {
+        if (client_flag) {
+            if (argc > 4) {
+                printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
+                exit(1);
+            }
+        } else {
+            if (argc > 3) {
+                printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
+                exit(1);
+            }
+        }
+    }
+    if (protocol == IPPROTO_UDP && !type_flag) {
+        if (argc > 4) {
+            printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
+            exit(1);
+        }
+    }
+    if (protocol == IPPROTO_UDP && type_flag) {
+        if (client_flag) {
+            if (argc > 5) {
+                printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
+                exit(1);
+            }
+        } else {
+            if (argc > 4) {
+                printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
+                exit(1);
+            }
+        }
+    }
+
+    portno = atoi(argv[argc - 1]);
+    if (portno == 0) {
+        printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
+        exit(1);
+    }
+    if (portno < 1025 || portno > 65535) {
+        printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
+        exit(1);
+    }
+
     if (type_flag) { // act as server
-        portno = atoi(argv[argc - 1]);
-        if (portno == 0) {
-            printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
-            exit(1);
-        }
-        if (portno < 1025 || portno > 65535) {
-            printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
-            exit(1);
-        }
         if (client_flag) {
             server = gethostbyname(argv[argc - 2]);
             if (server == NULL) {
@@ -163,12 +198,7 @@ int main(int argc, char *argv[]) {
                 }
             }
         } else {
-            portno = atoi(argv[argc - 1]);
-            if (portno == 0) {
-                error();
-            }
             char buffer[256];
-            struct sockaddr_in serv_addr, cli_addr;
 
             if ((sockfd = socket(AF_INET, sock_type, 0)) < 0) {
                 error();
@@ -189,7 +219,7 @@ int main(int argc, char *argv[]) {
             }
             int len, n;
             for (;;) {
-                n = recvfrom(sockfd, (char *) buffer, 256, MSG_WAITALL, (
+                n = (int) recvfrom(sockfd, (char *) buffer, 256, MSG_WAITALL, (
                         struct sockaddr *) &cli_addr, (socklen_t *) &len);
                 buffer[n] = '\0';
                 printf("Here is the message: %s\n", buffer);
@@ -197,17 +227,7 @@ int main(int argc, char *argv[]) {
         }
     } else { //act as client
         char buffer[256];
-        portno = atoi(argv[argc - 1]);
-        if (portno == 0) {
-            printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
-            exit(1);
-        }
-        if (portno < 1025 || portno > 65535) {
-            printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
-            exit(1);
-        }
 
-        server = gethostbyname(argv[argc - 2]);
         if (server == NULL) {
             printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
             exit(1);
@@ -235,11 +255,9 @@ int main(int argc, char *argv[]) {
                 bzero(buffer, 256);
                 char *line = fgets(buffer, 255, stdin);
                 if (line == NULL) {
-                    write(sockfd,
-                          "0x03", 18);
+                    write(sockfd, "0x03", 18);
                     close(sockfd);
-                    printf("internal error");
-                    kill(0, SIGKILL);
+                    error();
                 }
                 n = (int) write(sockfd, buffer, strlen(buffer));
                 if (n < 0)
@@ -264,8 +282,9 @@ int main(int argc, char *argv[]) {
                     for (;;) {}
                 }
 
-                int nbytes = strlen(buffer) + 1;
-                if (sendto(sockfd, buffer, nbytes, 0, (struct sockaddr *) &serv_addr, addr_size) < 0) {
+                int nbytes = (int) (strlen(buffer) + 1);
+                if (sendto(sockfd, buffer, (size_t) nbytes, 0, (struct sockaddr *) &serv_addr, (socklen_t) addr_size) <
+                    0) {
                     error();
                 }
             }
