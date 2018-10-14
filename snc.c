@@ -10,7 +10,7 @@
 #include <signal.h>
 
 void error() {
-    perror("internal error");
+    printf("internal error");
     kill(0, SIGKILL);
 }
 
@@ -108,15 +108,27 @@ int main(int argc, char *argv[]) {
     }
 
     if (type_flag) { // act as server
+        portno = atoi(argv[argc - 1]);
+        if (portno == 0) {
+            printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
+            exit(1);
+        }
+        if (portno < 1025 || portno > 65535) {
+            printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
+            exit(1);
+        }
+        if (client_flag) {
+            server = gethostbyname(argv[argc - 2]);
+            if (server == NULL) {
+                printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
+                exit(1);
+            }
+        }
         if (protocol == IPPROTO_TCP) {
             sockfd = socket(AF_INET, sock_type, protocol);
             if (sockfd < 0)
                 error();
             bzero((char *) &serv_addr, sizeof(serv_addr));
-            portno = atoi(argv[argc - 1]);
-            if (portno == 0) {
-                error();
-            }
             serv_addr.sin_family = AF_INET;
             serv_addr.sin_port = htons(portno);
             serv_addr.sin_addr.s_addr = INADDR_ANY;
@@ -155,7 +167,6 @@ int main(int argc, char *argv[]) {
             if (portno == 0) {
                 error();
             }
-            char * response = "I got your message";
             char buffer[256];
             struct sockaddr_in serv_addr, cli_addr;
 
@@ -188,18 +199,24 @@ int main(int argc, char *argv[]) {
         char buffer[256];
         portno = atoi(argv[argc - 1]);
         if (portno == 0) {
-            error();
+            printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
+            exit(1);
+        }
+        if (portno < 1025 || portno > 65535) {
+            printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
+            exit(1);
+        }
+
+        server = gethostbyname(argv[argc - 2]);
+        if (server == NULL) {
+            printf("invalid or missing options\nusage: snc [-l] [-u] [hostname] port\n");
+            exit(1);
         }
         if (protocol == IPPROTO_TCP) {
             sockfd = socket(AF_INET, sock_type, protocol);
             if (sockfd < 0)
                 error();
 
-            server = gethostbyname(argv[argc - 2]);
-            if (server == NULL) {
-                error();
-
-            }
             bzero((char *) &serv_addr, sizeof(serv_addr));
             serv_addr.
                     sin_family = AF_INET;
