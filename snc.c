@@ -15,7 +15,7 @@ void error() {
     kill(0, SIGKILL);
 }
 
-void handle_kill(int sock, int protocol) { // handle input reads for server
+void handle_server_kill_message(int sock, int protocol) { // handle input reads for server
     char buffer[100];
     for (;;) {
         char *line = fgets(buffer, 255, stdin);
@@ -30,7 +30,7 @@ void handle_kill(int sock, int protocol) { // handle input reads for server
     }
 }
 
-void handle_read_tcp(int sock) { //handle socket reads for client
+void handle_client_read_tcp(int sock) { //handle socket reads for client
     char buffer[256];
     for (;;) {
         int n = (int) read(sock, buffer, 255);
@@ -184,7 +184,7 @@ int main(int argc, char *argv[]) {
                         error();
                     kill_pid = fork();
                     if (kill_pid == 0) {
-                        handle_kill(newsockfd, protocol);
+                        handle_server_kill_message(newsockfd, protocol);
                     }
                     pid = fork();
                     if (pid < 0)
@@ -216,7 +216,7 @@ int main(int argc, char *argv[]) {
             }
             kill_pid = fork();
             if (kill_pid == 0) {
-                handle_kill(sockfd, protocol);
+                handle_server_kill_message(sockfd, protocol);
             }
             int len, n;
             for (;;) {
@@ -239,18 +239,15 @@ int main(int argc, char *argv[]) {
                 error();
 
             bzero((char *) &serv_addr, sizeof(serv_addr));
-            serv_addr.
-                    sin_family = AF_INET;
-            bcopy(server->h_addr,
-                  (char *) &serv_addr.sin_addr.s_addr,
-                  server->h_length);
+            serv_addr.sin_family = AF_INET;
+            bcopy(server->h_addr, (char *) &serv_addr.sin_addr.s_addr, server->h_length);
             serv_addr.sin_port = htons(portno);
             if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
                 error();
 
             read_pid = fork();
             if (read_pid == 0) {
-                handle_read_tcp(sockfd);
+                handle_client_read_tcp(sockfd);
             }
             for (;;) {
                 bzero(buffer, 256);
@@ -284,8 +281,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 int nbytes = (int) (strlen(buffer) + 1);
-                if (sendto(sockfd, buffer, (size_t) nbytes, 0, (struct sockaddr *) &serv_addr, (socklen_t) addr_size) <
-                    0) {
+                if (sendto(sockfd, buffer, (size_t) nbytes, 0, (struct sockaddr *) &serv_addr, (socklen_t) addr_size) < 0) {
                     error();
                 }
             }
