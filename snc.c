@@ -1,13 +1,14 @@
+#include <unistd.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <strings.h>
-#include <zconf.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <signal.h>
+#include <string.h>
 
 void error() {
     printf("internal error");
